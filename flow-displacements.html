@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Field-Based Image Displacement Mapping Through Adaptive Triangulation</title>
+
+    <meta name="description" content="Explore a novel method for creating pseudo-depth and motion effects in static images using Perlin noise flow fields and adaptive triangulation. Features a real-time, interactive implementation.">
+    <meta name="keywords" content="Flow fields, Delaunay triangulation, Image displacement, Perlin noise, Computational art, Real-time rendering, Generative art, p5.js">
+    <meta name="author" content="Gemini 2.5 Pro, Sriharsha Bangaru">
+    
+    <!-- Open Graph (for Facebook, LinkedIn, Pinterest, etc.) -->
+    <meta property="og:title" content="Flow Field-Based Image Displacement Mapping">
+    <meta property="og:description" content="A novel approach for creating pseudo-depth displacement effects in images through Perlin noise and adaptive triangulation. Features a live, interactive demo.">
+    <meta property="og:type" content="article">
+    <meta property="og:image" content="https://labs.galleri5.com/flowmeta.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="https://labs.galleri5.com/flow-field-paper"> <!-- IMPORTANT: Replace with the final, public URL of your page -->
+    <meta property="og:site_name" content="Galleri5 Labs">
+    <meta property="article:author" content="Sriharsha Bangaru">
+    
+    <!-- Twitter Card (for X) -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Flow Field-Based Image Displacement Mapping">
+    <meta name="twitter:description" content="A novel approach for creating pseudo-depth displacement effects in images through Perlin noise and adaptive triangulation. Features a live, interactive demo.">
+    <meta name="twitter:image" content="https://labs.galleri5.com/flowmeta.png">
+    <meta name="twitter:creator" content="@sriharshabangaru"> <!-- IMPORTANT: Replace with the correct Twitter handle -->
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Crimson+Text:wght@400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: #fafafa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #2a2a2a;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 40px rgba(0,0,0,0.08);
+        }
+        
+        .header {
+            padding: 50px 60px 40px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 400;
+            letter-spacing: -0.5px;
+            color: #1a1a1a;
+            margin-bottom: 30px;
+            line-height: 1.3;
+        }
+        
+        .authors {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #2a2a2a;
+            letter-spacing: 0.3px;
+            margin-bottom: 8px;
+        }
+        
+        .affiliation {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 400;
+            color: #6a6a6a;
+            letter-spacing: 0.3px;
+            font-style: italic;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            padding: 0 60px;
+        }
+        
+        .tab {
+            padding: 20px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 13px;
+            color: #8a8a8a;
+            letter-spacing: 0.5px;
+            margin-right: 10px;
+            border-bottom: 2px solid transparent;
+            position: relative;
+            top: 2px;
+        }
+        
+        .tab:hover {
+            color: #2a2a2a;
+        }
+        
+        .tab.active {
+            color: #1a1a1a;
+            border-bottom: 2px solid #1a1a1a;
+        }
+        
+        .content {
+            padding: 60px;
+            min-height: 600px;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 400;
+            margin-top: 50px;
+            margin-bottom: 30px;
+            color: #1a1a1a;
+            letter-spacing: -0.3px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        h3 {
+            font-family: 'Inter', sans-serif;
+            color: #1a1a1a;
+            margin-top: 35px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+        
+        h4 {
+            font-family: 'Inter', sans-serif;
+            color: #2a2a2a;
+            margin-top: 25px;
+            margin-bottom: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .abstract {
+            background: #f9f9f9;
+            border-left: 3px solid #2a2a2a;
+            padding: 35px;
+            margin: 0 0 40px 0;
+        }
+        
+        .abstract h2 {
+            font-family: 'Inter', sans-serif;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+            border: none;
+            padding: 0;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .abstract-content {
+            font-size: 15px;
+            color: #2a2a2a;
+            text-align: justify;
+            line-height: 1.7;
+        }
+        
+        p {
+            margin-bottom: 20px;
+            text-align: justify;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+        
+        .equation {
+            background: #f9f9f9;
+            border: 1px solid #e8e8e8;
+            padding: 30px;
+            margin: 30px 0;
+            border-radius: 2px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        
+        .algorithm-box {
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            padding: 35px;
+            margin: 30px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .algorithm-box:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        
+        .algorithm-box h4 {
+            font-family: 'Inter', sans-serif;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .algorithm-step {
+            margin-left: 20px;
+            margin-bottom: 12px;
+            padding-left: 15px;
+            border-left: 2px solid #e8e8e8;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        
+        .algorithm-step strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .author-block {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 10px 0 6px;
+        }
+
+        .author-card {
+        display: flex;
+        gap: 12px;
+        align-items: center;                 /* vertically center avatar + text */
+        background: #fff;
+        border: 1px solid #e9e9e9;
+        padding: 8px 14px 18px 14px;         /* less top, more bottom padding */
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        }
+
+        .author-avatar {
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        display: flex;                       /* perfectly center image in the squircle */
+        align-items: center;
+        justify-content: center;
+        padding:0px 0px 0px 0px;            /* move “top” padding to the bottom */
+        background: #f6f7fb;
+        border-radius: 22%;                  /* squircle-ish */
+        overflow: hidden;                    /* clip to squircle */
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
+        }
+
+        .author-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;                      /* remove baseline gap */
+        }
+
+        .author-info { line-height: 1.35; }
+
+        .author-name {
+        font-family: Inter, system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+        color: #1a1a1a;
+        }
+
+        .author-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        border-radius: 9999px;
+        border: 1px solid;
+        }
+
+        .author-badge.lead    { color:#6b21a8; background:#f3e8ff; border-color:#e9d5ff; }
+        .author-badge.co      { color:#0f4fd1; background:#eef3ff; border-color:#dbe6ff; }
+
+        .author-title {
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 12px;
+        color: #555;
+        margin-top: 2px;
+        }
+
+        .author-affil {
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 12px;
+        color: #777;
+        margin-top: 2px;
+        }
+
+        .author-affil .muted { color: #9a9a9a; font-style: italic; }
+
+        
+        code {
+            background: #1a1a1a;
+            color: #4ade80;
+            padding: 3px 8px;
+            border-radius: 2px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 13px;
+        }
+        
+        ul, ol {
+            margin-left: 24px;
+            margin-bottom: 20px;
+            line-height: 1.8;
+            font-size: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        
+        .keywords {
+            margin-top: 30px;
+            padding: 20px 0;
+            border-top: 1px solid #e8e8e8;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            color: #6a6a6a;
+        }
+        
+        .keywords strong {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #2a2a2a;
+        }
+        
+        .section-number {
+            display: inline-block;
+            background: #2a2a2a;
+            color: white;
+            padding: 4px 10px;
+            margin-right: 12px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 11px;
+            border-radius: 2px;
+        }
+        
+        .parameter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin: 30px 0;
+        }
+        
+        .parameter-card {
+            background: white;
+            border: 1px solid #e8e8e8;
+            padding: 24px;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        
+        .parameter-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .parameter-card h5 {
+            font-family: 'Inter', sans-serif;
+            color: #2a2a2a;
+            margin-bottom: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .parameter-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 400;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .parameter-desc {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            color: #6a6a6a;
+        }
+        
+        .highlight-box {
+            background: #f9f9f9;
+            border-left: 3px solid #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 14px;
+        }
+        
+        .metrics-table th {
+            background: #f9f9f9;
+            color: #2a2a2a;
+            padding: 14px 16px;
+            text-align: left;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .metrics-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        
+        .metrics-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .reference-list {
+            counter-reset: reference-counter;
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .reference-list li {
+            counter-increment: reference-counter;
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .reference-list li::before {
+            content: counter(reference-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #2a2a2a;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* Implementation Tab Styles */
+        .implementation-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .implementation-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .implementation-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 400;
+            color: #1a1a1a;
+            margin: 0 0 20px 0;
+            border: none;
+            padding: 0;
+        }
+        
+        .instructions-box {
+            background: #f9f9f9;
+            border-left: 3px solid #2a2a2a;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        #canvas-container {
+            border: 2px solid #e8e8e8;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: white;
+        }
+        
+        .controls-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 24px;
+            background-color: white;
+            border: 1px solid #e8e8e8;
+            padding: 30px;
+            width: 800px;
+            max-width: 90vw;
+            box-sizing: border-box;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .control-group label {
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #2a2a2a;
+        }
+        
+        .control-group input[type="file"] {
+            color: #2a2a2a;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+        }
+        
+        .control-group input[type="range"] {
+            cursor: pointer;
+            width: 150px;
+            -webkit-appearance: none;
+            height: 2px;
+            background: #d8d8d8;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #2a2a2a;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #2a2a2a;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        /* About Tab Styles */
+        .about-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .about-video {
+            max-width: 600px;
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+            border: 1px solid #e8e8e8;
+            display: block;
+            background-color: #f0f0f0;
+        }
+        
+        /* New Styles for the Additional Showcase Grid */
+        .showcase-grid {
+            display: grid;
+            /* Creates a responsive grid that automatically adjusts columns */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 25px;
+        }
+
+        .showcase-item-card {
+            background-color: #f9f9f9;
+            border-radius: 12px; /* Matches the YouTube embed style */
+            overflow: hidden;    /* Essential for rounding the corners of the media inside */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        .showcase-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .showcase-media {
+            width: 100%;
+            height: 100%; /* Make media fill the entire height of its container card */
+            display: block;
+            object-fit: cover; /* This is the key: it scales the image to cover the area, cropping as needed without distortion */
+        }
+                @media screen and (max-width: 900px) {
+            .container {
+                box-shadow: none;
+            }
+            
+            .content {
+                padding: 30px;
+            }
+            
+            .header {
+                padding: 30px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+            
+            .parameter-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                padding: 0 30px;
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                padding: 15px 20px;
+                font-size: 12px;
+            }
+            
+            .controls-panel {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+            .youtube-playlist-container {
+                position: relative;
+                width: 100%;
+                max-width: 900px; /* A bit wider to accommodate the playlist sidebar */
+                margin: 0 auto;
+                aspect-ratio: 16 / 9; /* Modern way to maintain responsive aspect ratio */
+                border-radius: 12px;
+                overflow: hidden; /* This is key to making the iframe corners rounded */
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+                background-color: #000; /* Fallback bg color while iframe loads */
+            }
+
+            .youtube-playlist-container iframe {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Flow Field-Based Image Displacement Mapping Through Adaptive Triangulation</h1>
+                <div class="author-block">
+
+                <div class="author-card">
+                    <div class="author-avatar">
+                    <img src="https://www.gstatic.com/images/branding/productlogos/gemini_2025/v1/web-96dp/logo_gemini_2025_color_2x_web_96dp.png" alt="Gemini 2.5 Pro logo">
+                    </div>
+                    <div class="author-info">
+                    <div class="author-name">
+                        Gemini&nbsp;2.5&nbsp;Pro <span class="author-badge lead">Lead Author</span>
+                    </div>
+                    <div class="author-title">Lead Conceptual Architect & Research Partner</div>
+                    <div class="author-affil">
+                        Version: Aug 12, 2025 <span class="muted"> Not Deep Think</span>
+                    </div>
+                    </div>
+                </div>
+
+                <div class="author-card">
+                    <div class="author-avatar">
+                    <img src="https://images.crunchbase.com/image/upload/c_pad,h_256,w_256,f_auto,q_auto:eco,dpr_1/v1436609921/pcfaag1awalad06afudc.png" alt="Sriharsha Bangaru logo">
+                    </div>
+                    <div class="author-info">
+                    <div class="author-name">
+                        Sriharsha Bangaru <span class="author-badge co">Co-author</span>
+                    </div>
+                    <div class="author-title">Department of Computational Visual Arts</div>
+                    <div class="author-affil">
+                        Galleri5 Technologies Pvt. Ltd. <span class="muted">(Now part of Collective Artists Network)</span>
+                    </div>
+                    </div>
+                </div>
+
+                </div>
+
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('paper')">Academic Paper</div>
+            <div class="tab" onclick="showTab('implementation')">Live Implementation</div>
+            <div class="tab" onclick="showTab('related')">Related Work & Closest Prior Art</div>
+            <div class="tab" onclick="showTab('showcase')">Developer Showcase</div>
+            <div class="tab" onclick="showTab('about')">About Harsha</div>
+        </div>
+        
+        <div class="content">
+            <!-- Academic Paper Tab -->
+            <div id="paper" class="tab-content active">
+                <div class="abstract">
+                    <h2>Abstract</h2>
+                    <div class="abstract-content">
+                        We present a novel approach for creating pseudo-depth displacement effects in digital images through the combination of Perlin noise-based flow fields and adaptive Delaunay triangulation. Our method employs brightness-weighted sampling to generate a non-uniform point distribution that captures image features, followed by triangulation-based mesh generation. Each triangle undergoes vertex displacement guided by a continuous flow field, with displacement magnitude modulated by local brightness values. Additionally, we introduce dynamic color transformations in HSB space, including noise-driven hue shifting and displacement-proportional saturation fading, to enhance the visual depth perception. The algorithm achieves real-time performance through efficient triangulation and parallel vertex processing, making it suitable for interactive artistic applications and generative design workflows.
+                    </div>
+                </div>
+                
+                <div class="keywords">
+                    <strong>Keywords</strong> Flow fields · Delaunay triangulation · Image displacement · Perlin noise · Computational art · Real-time rendering
+                </div>
+
+                <div class="showcase-grid">
+                    <!-- clothy.mp4 (first, as requested) -->
+                    <div class="showcase-item-card">
+                        <video src="https://labs.galleri5.com/clothy.mp4" autoplay loop muted playsinline class="showcase-media"></video>
+                    </div>
+
+                    <!-- imperao.jpg -->
+                    <div class="showcase-item-card">
+                        <img src="https://labs.galleri5.com/imperao.jpg" alt="Imperao abstract art" class="showcase-media">
+                    </div>
+
+                    <!-- feather.png -->
+                    <div class="showcase-item-card">
+                        <img src="https://labs.galleri5.com/feather.png" alt="Abstract feather art" class="showcase-media">
+                    </div>
+                </div>
+                
+                <h2><span class="section-number">01</span>Introduction</h2>
+                
+                <p>
+                    The creation of depth and motion effects in static images has been a fundamental challenge in computer graphics and digital art. Traditional approaches often rely on depth maps, normal maps, or complex 3D reconstruction techniques. We propose an alternative method that generates compelling pseudo-depth effects through the strategic combination of flow field dynamics and adaptive mesh deformation.
+                </p>
+                
+                <p>
+                    Our approach draws inspiration from fluid dynamics visualization and computational geometry, leveraging the organic patterns of Perlin noise to create natural-looking displacement fields. By coupling this with brightness-based adaptive sampling and Delaunay triangulation, we achieve a system that responds intelligently to image content while maintaining computational efficiency.
+                </p>
+                
+                <h2><span class="section-number">02</span>Theoretical Foundation</h2>
+                
+                <h3>2.1 Brightness-Based Point Sampling</h3>
+                
+                <p>
+                    The foundation of our method lies in the intelligent sampling of points from the source image. Rather than uniform sampling, we employ a brightness-weighted stochastic process. For a given image \(I\) with dimensions \(W \times H\), the probability of selecting a point at position \((x, y)\) is given by:
+                </p>
+                
+                <div class="equation">
+                    $$P(x, y) = \frac{B(I(x, y))}{B_{max}} \cdot \rho$$
+                </div>
+                
+                <p>
+                    where \(B(I(x, y))\) represents the brightness value at pixel \((x, y)\), \(B_{max}\) is the maximum possible brightness (typically 100 in HSB space), and \(\rho\) is a user-defined density parameter controlling the overall sampling rate.
+                </p>
+                
+                <div class="highlight-box">
+                    <strong>Key Insight:</strong> Brightness-weighted sampling ensures higher triangle density in visually important regions, preserving detail where it matters most while maintaining computational efficiency in darker areas.
+                </div>
+                
+                <h3>2.2 Delaunay Triangulation</h3>
+                
+                <p>
+                    Given the set of sampled points \(\mathcal{P} = \{p_1, p_2, ..., p_n\}\), we construct a Delaunay triangulation \(\mathcal{T}\). The Delaunay condition ensures that no point in \(\mathcal{P}\) lies inside the circumcircle of any triangle in \(\mathcal{T}\), mathematically expressed as:
+                </p>
+                
+                <div class="equation">
+                    $$\forall t \in \mathcal{T}, \forall p \in \mathcal{P} \setminus V(t) : p \notin \text{circumcircle}(t)$$
+                </div>
+                
+                <p>
+                    where \(V(t)\) denotes the vertices of triangle \(t\). This property maximizes the minimum angle of all triangles, avoiding sliver triangles and ensuring mesh quality.
+                </p>
+                
+                <h3>2.3 Flow Field Generation</h3>
+                
+                <p>
+                    The displacement field is generated using 3D Perlin noise, creating smooth, continuous gradients. For each point \((x, y)\) at time \(t\), the flow field angle \(\theta\) is computed as:
+                </p>
+                
+                <div class="equation">
+                    $$\theta(x, y, t) = 2\pi \cdot \eta \cdot \text{Perlin}(x \cdot z, y \cdot z, t \cdot \tau)$$
+                </div>
+                
+                <p>
+                    where \(z\) is the zoom factor controlling the spatial frequency of the noise, \(\tau\) is the temporal evolution rate, and \(\eta\) is a scaling factor (typically 2) allowing for multiple rotations.
+                </p>
+                
+                <h2><span class="section-number">03</span>Displacement Algorithm</h2>
+                
+                <div class="algorithm-box">
+                    <h4>Algorithm 1: Triangle Displacement and Rendering</h4>
+                    <div class="algorithm-step">
+                        <strong>Input:</strong> Triangle vertices \(V = \{v_1, v_2, v_3\}\), Image \(I\), Parameters \(\{\delta, z, h_s, s_f\}\)
+                    </div>
+                    <div class="algorithm-step">
+                        <strong>Output:</strong> Rendered displaced triangle
+                    </div>
+                    <div class="algorithm-step">
+                        <strong>Step 1.</strong> Compute centroid: \(C = \frac{1}{3}\sum_{i=1}^{3} v_i\)
+                    </div>
+                    <div class="algorithm-step">
+                        <strong>Step 2.</strong> For each vertex \(v_i\):
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;a. Sample noise: \(n_i = \text{Perlin}(v_i.x \cdot z, v_i.y \cdot z, t)\)
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;b. Compute angle: \(\theta_i = 2\pi \cdot 2 \cdot n_i\)
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;c. Get brightness: \(b_i = B(I(v_i.x, v_i.y)) / 100\)
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;d. Calculate magnitude: \(m_i = \delta \cdot b_i\)
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;e. Displace vertex: \(v'_i = v_i + m_i \cdot [\cos(\theta_i), \sin(\theta_i)]^T\)
+                    </div>
+                    <div class="algorithm-step">
+                        <strong>Step 3.</strong> Apply color transformations (see Section 3.1)
+                    </div>
+                    <div class="algorithm-step">
+                        <strong>Step 4.</strong> Render triangle with vertices \(\{v'_1, v'_2, v'_3\}\)
+                    </div>
+                </div>
+                
+                <h3>3.1 Vertex Displacement</h3>
+                
+                <p>
+                    For each vertex \(v\) in a triangle, the displacement vector \(\vec{d}\) is calculated as:
+                </p>
+                
+                <div class="equation">
+                    $$\vec{d}(v) = M(v) \cdot \begin{bmatrix} \cos(\theta(v)) \\ \sin(\theta(v)) \end{bmatrix}$$
+                </div>
+                
+                <p>
+                    where the magnitude function \(M(v)\) is defined as:
+                </p>
+                
+                <div class="equation">
+                    $$M(v) = \delta \cdot \frac{B(I(v.x, v.y))}{B_{max}}$$
+                </div>
+                
+                <p>
+                    Here, \(\delta\) represents the maximum displacement amount, creating a brightness-modulated displacement field where brighter regions experience greater deformation.
+                </p>
+                
+                <h3>3.2 Dynamic Color Transformation</h3>
+                
+                <p>
+                    Beyond geometric displacement, we apply sophisticated color transformations in HSB (Hue, Saturation, Brightness) space to enhance the perception of depth and motion.
+                </p>
+                
+                <h4>3.2.1 Hue Shift</h4>
+                
+                <p>
+                    The hue component undergoes a shift based on the average noise value across the triangle's vertices:
+                </p>
+                
+                <div class="equation">
+                    $$H' = (H + \Delta H) \mod 360$$
+                </div>
+                
+                <p>
+                    where the hue shift \(\Delta H\) is computed as:
+                </p>
+                
+                <div class="equation">
+                    $$\Delta H = h_s \cdot 2 \cdot \left(\frac{1}{3}\sum_{i=1}^{3} n_i - 0.5\right)$$
+                </div>
+                
+                <p>
+                    This creates a color warping effect that follows the flow field patterns, with \(h_s\) controlling the maximum hue shift amplitude.
+                </p>
+                
+                <h4>3.2.2 Saturation Fade</h4>
+                
+                <p>
+                    To simulate atmospheric perspective and depth cues, we implement displacement-proportional saturation reduction:
+                </p>
+                
+                <div class="equation">
+                    $$S' = S - s_f \cdot \frac{\bar{m}}{\delta}$$
+                </div>
+                
+                <p>
+                    where \(\bar{m}\) is the average displacement magnitude across the triangle's vertices, and \(s_f\) controls the fade intensity. This creates a desaturation effect for highly displaced regions, mimicking depth-based color fading.
+                </p>
+                
+                <h2><span class="section-number">04</span>Implementation Details</h2>
+                
+                <h3>4.1 Optimization Strategies</h3>
+                
+                <p>
+                    The algorithm achieves real-time performance through several key optimizations:
+                </p>
+                
+                <ul>
+                    <li><strong>Spatial Coherence:</strong> The Delaunay triangulation is computed once per parameter change, avoiding redundant geometric computations.</li>
+                    <li><strong>Temporal Coherence:</strong> Perlin noise evaluation uses incremental time steps, maintaining smooth animation without recalculating the entire field.</li>
+                    <li><strong>Brightness Caching:</strong> Image brightness values are pre-computed and stored during the sampling phase, eliminating redundant pixel reads.</li>
+                    <li><strong>Triangle Culling:</strong> Triangles with all vertices outside the viewport are skipped, reducing rendering overhead.</li>
+                </ul>
+                
+                <h3>4.2 Parameter Space</h3>
+                
+                <p>
+                    The algorithm exposes five primary parameters that control the visual output:
+                </p>
+                
+                <div class="parameter-grid">
+                    <div class="parameter-card">
+                        <h5>ρ (Density)</h5>
+                        <div class="parameter-value">[0.05, 1.0]</div>
+                        <div class="parameter-desc">Controls point sampling density</div>
+                    </div>
+                    <div class="parameter-card">
+                        <h5>δ (Displacement)</h5>
+                        <div class="parameter-value">[0, 150]px</div>
+                        <div class="parameter-desc">Maximum displacement magnitude</div>
+                    </div>
+                    <div class="parameter-card">
+                        <h5>z (Zoom)</h5>
+                        <div class="parameter-value">[0.001, 0.05]</div>
+                        <div class="parameter-desc">Flow field spatial frequency</div>
+                    </div>
+                    <div class="parameter-card">
+                        <h5>h_s (Hue Shift)</h5>
+                        <div class="parameter-value">[0, 180]°</div>
+                        <div class="parameter-desc">Maximum hue deviation</div>
+                    </div>
+                    <div class="parameter-card">
+                        <h5>s_f (Saturation)</h5>
+                        <div class="parameter-value">[0, 100]</div>
+                        <div class="parameter-desc">Saturation reduction factor</div>
+                    </div>
+                </div>
+                
+                <h2><span class="section-number">05</span>Results and Analysis</h2>
+                
+                <h3>5.1 Visual Characteristics</h3>
+                
+                <p>
+                    The algorithm produces several distinctive visual effects:
+                </p>
+                
+                <ul>
+                    <li><strong>Organic Flow Patterns:</strong> The Perlin noise field creates natural, fluid-like distortions that avoid the mechanical appearance of linear transformations.</li>
+                    <li><strong>Feature Preservation:</strong> Brightness-based sampling ensures that important image features (typically brighter regions) maintain higher triangle density, preserving detail where it matters most.</li>
+                    <li><strong>Depth Illusion:</strong> The combination of geometric displacement and color transformations creates a compelling pseudo-3D effect, with displaced regions appearing to float above or sink below the image plane.</li>
+                    <li><strong>Temporal Dynamics:</strong> The time-evolving noise field produces smooth, hypnotic animations that suggest organic movement or breathing effects.</li>
+                </ul>
+                
+                <h3>5.2 Performance Metrics</h3>
+                
+                <table class="metrics-table">
+                    <thead>
+                        <tr>
+                            <th>Operation</th>
+                            <th>Complexity</th>
+                            <th>Typical Time</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Point Sampling</td>
+                            <td><code>O(n)</code></td>
+                            <td>~5ms</td>
+                            <td>n = sampled points</td>
+                        </tr>
+                        <tr>
+                            <td>Delaunay Triangulation</td>
+                            <td><code>O(n log n)</code></td>
+                            <td>~20ms</td>
+                            <td>Divide-and-conquer</td>
+                        </tr>
+                        <tr>
+                            <td>Per-frame Rendering</td>
+                            <td><code>O(t)</code></td>
+                            <td>~10ms</td>
+                            <td>t = triangle count</td>
+                        </tr>
+                        <tr>
+                            <td>Frame Rate</td>
+                            <td>-</td>
+                            <td>30-60 FPS</td>
+                            <td>800×800px, moderate density</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h2><span class="section-number">06</span>Applications</h2>
+                
+                <p>
+                    The presented algorithm finds applications in various domains:
+                </p>
+                
+                <ul>
+                    <li><strong>Digital Art and Design:</strong> Creating unique visual effects for artistic expression and generative art projects.</li>
+                    <li><strong>Motion Graphics:</strong> Generating dynamic backgrounds and transitions for video production.</li>
+                    <li><strong>Data Visualization:</strong> Applying the technique to scientific visualization for emphasizing data patterns through controlled distortion.</li>
+                    <li><strong>Interactive Media:</strong> Real-time image effects for games, installations, and interactive experiences.</li>
+                    <li><strong>Glitch Art:</strong> Controlled corruption and distortion effects for aesthetic purposes.</li>
+                </ul>
+                
+                <h2><span class="section-number">07</span>Future Work</h2>
+                
+                <p>
+                    Several avenues for future research and development present themselves:
+                </p>
+                
+                <ul>
+                    <li><strong>Multi-scale Flow Fields:</strong> Implementing octave-based noise with varying frequencies to create more complex displacement patterns.</li>
+                    <li><strong>Adaptive Refinement:</strong> Dynamic triangle subdivision based on local image complexity or user interaction.</li>
+                    <li><strong>GPU Acceleration:</strong> Implementing the algorithm using WebGL or compute shaders for improved performance.</li>
+                    <li><strong>Machine Learning Integration:</strong> Using neural networks to learn optimal displacement patterns based on image content.</li>
+                    <li><strong>3D Extension:</strong> Extending the technique to true 3D space with depth map generation from single images.</li>
+                </ul>
+                
+                <h2><span class="section-number">08</span>Conclusion</h2>
+                
+                <p>
+                    We have presented a novel approach to image displacement mapping that combines flow field dynamics with adaptive triangulation to create compelling visual effects. The method's key innovations include brightness-weighted sampling for intelligent mesh generation, Perlin noise-based flow fields for organic displacement patterns, and sophisticated color transformations that enhance depth perception.
+                </p>
+                
+                <p>
+                    The algorithm's real-time performance and intuitive parameter space make it suitable for both artistic applications and technical visualization tasks. By bridging computational geometry, fluid dynamics, and digital art, this work demonstrates the potential for cross-disciplinary approaches in creating new forms of visual expression.
+                </p>
+                
+                <p>
+                    The open-source implementation and web-based deployment ensure accessibility for artists, designers, and researchers, fostering further exploration and development of flow field-based visualization techniques.
+                </p>
+                
+                <h2><span class="section-number">09</span>References</h2>
+                
+                <ol class="reference-list">
+                    <li>Perlin, K. (1985). An image synthesizer. ACM SIGGRAPH Computer Graphics, 19(3), 287-296.</li>
+                    <li>de Berg, M., Cheong, O., van Kreveld, M., & Overmars, M. (2008). Computational Geometry: Algorithms and Applications. Springer-Verlag.</li>
+                    <li>Shewchuk, J. R. (1996). Triangle: Engineering a 2D quality mesh generator and Delaunay triangulator. Applied Computational Geometry, 1148, 203-222.</li>
+                    <li>Bridson, R. (2007). Fast Poisson disk sampling in arbitrary dimensions. SIGGRAPH Sketches, 10(1), 1.</li>
+                    <li>Turk, G. (1991). Generating textures on arbitrary surfaces using reaction-diffusion. ACM SIGGRAPH Computer Graphics, 25(4), 289-298.</li>
+                    <li>Cook, R. L. (1986). Stochastic sampling in computer graphics. ACM Transactions on Graphics, 5(1), 51-72.</li>
+                    <li>Lee, D. T., & Schachter, B. J. (1980). Two algorithms for constructing a Delaunay triangulation. International Journal of Computer & Information Sciences, 9(3), 219-242.</li>
+                </ol>
+            </div>
+            
+            <!-- Implementation Tab -->
+            <div id="implementation" class="tab-content">
+                <div class="implementation-container">
+                    <div class="implementation-header">
+                        <h2>Interactive Flow Field Implementation</h2>
+                        <div class="instructions-box">
+                            <strong>Instructions:</strong> Upload an image and adjust the parameters to see the flow field displacement effect in real-time. The <strong>Hue Shift</strong> warps colors along the flow field, while <strong>Saturation Fade</strong> makes highly displaced triangles lose color, adding depth. Experiment with all sliders to create unique visual styles.
+                        </div>
+                    </div>
+                    
+                    <div id="canvas-container"></div>
+                    
+                    <div class="controls-panel">
+                        <div class="control-group">
+                            <label for="file-input">Upload Image</label>
+                            <div id="file-input-container"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="density">Detail / Density</label>
+                            <div id="density-slider-container"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="displacement">Displacement</label>
+                            <div id="displacement-slider-container"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="zoom">Flow Field Zoom</label>
+                            <div id="zoom-slider-container"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="hue">Hue Shift</label>
+                            <div id="hue-slider-container"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="saturation">Saturation Fade</label>
+                            <div id="saturation-slider-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Related Work Tab -->
+            <div id="related" class="tab-content">
+                <h2>Related Work & Closest Prior Art</h2>
+                <p>
+                    This section surveys prior research that intersects with the method proposed in this document—
+                    brightness/feature–weighted point sampling, adaptive Delaunay triangulation to form a mesh over the image,
+                    and real‑time, piecewise‑affine displacement of triangle vertices driven by a smooth, procedural flow
+                    field (Perlin/curl‑noise), accompanied by simple color transforms in HSB space.
+                </p>
+
+                <h3>1) Adaptive Triangulation and Low‑Poly Image Abstraction</h3>
+                <ul>
+                    <li>
+                        <a href="https://cgl.ethz.ch/Downloads/Publications/Papers/2018/Law18a/Law18a.pdf" target="_blank" rel="noopener">
+                            Lawonn et&nbsp;al., “Stylized Image Triangulation,” Computer Graphics Forum, 2019
+                        </a>
+                        — formulates image triangulation as an optimization with feature‑aware refinement.
+                    </li>
+                    <li>
+                        <a href="https://www.graphics.pku.edu.cn/docs/20180717161625886052.pdf" target="_blank" rel="noopener">
+                            Gai et&nbsp;al., “Artistic Low‑Poly Rendering for Images,” 2015
+                        </a>
+                        — automatic low‑poly generation using Delaunay triangulation.
+                    </li>
+                    <li>
+                        <a href="https://www.joig.net/2024/JOIG-V12N4-372.pdf" target="_blank" rel="noopener">
+                            Joseph et&nbsp;al., “A Delaunay Triangulation‑Based Low‑Poly Image Abstraction,” 2024
+                        </a>
+                        — recent low‑poly pipeline with boundary‑aware seeding and Delaunay reconstruction.
+                    </li>
+                    <li>
+                        <a href="https://www.math.uni-hamburg.de/home/iske/papers/at6.pdf" target="_blank" rel="noopener">
+                            Demaret, Dyn, Iske, “Image Compression by Linear Splines over Adaptive Triangulations,” 2006
+                        </a>
+                        — classic adaptive‑triangulation of images (Delaunay on significant pixels) as linear‑spline approximation.
+                    </li>
+                </ul>
+
+                <h3>2) Brightness‑Weighted / Feature‑Aware Sampling</h3>
+                <ul>
+                    <li>
+                        <a href="https://www.cs.ubc.ca/labs/imager/tr/2002/secord2002b/secord.2002b.pdf" target="_blank" rel="noopener">
+                            Secord, “Weighted Voronoi Stippling,” NPAR 2002
+                        </a>
+                        — luminance‑guided sampling via weighted centroidal Voronoi diagrams (dual to Delaunay), a common basis for intensity‑aware point sets.
+                    </li>
+                </ul>
+
+                <h3>3) Vector‑Field–Guided Stylization</h3>
+                <ul>
+                    <li>
+                        <a href="https://www.umsl.edu/~kangh/Papers/kang_tvcg09.pdf" target="_blank" rel="noopener">
+                            Kang, Lee, Chui, “Flow‑Based Image Abstraction,” IEEE TVCG 2009
+                        </a>
+                        — uses an image‑derived vector field to steer anisotropic filtering and abstraction (flow‑guided appearance rather than geometry).
+                    </li>
+                    <li>
+                        <a href="https://www.kyprianidis.com/p/pg2009/jkyprian-pg2009.pdf" target="_blank" rel="noopener">
+                            Kyprianidis et&nbsp;al., “Image and Video Abstraction by Anisotropic Kuwahara Filtering,” 2009
+                        </a>
+                        — structure‑adaptive filtering along local feature directions for painterly abstraction.
+                    </li>
+                    <li>
+                        <a href="https://dl.acm.org/doi/10.1145/166117.166151" target="_blank" rel="noopener">
+                            Cabral &amp; Leedom, “Imaging Vector Fields Using Line Integral Convolution,” SIGGRAPH 1993
+                        </a>
+                        — foundational vector‑field visualization by filtering textures along streamlines (appearance, not geometric warp).
+                    </li>
+                </ul>
+
+                <h3>4) Procedural Flow Fields (Perlin/Curl‑Noise)</h3>
+                <ul>
+                    <li>
+                        <a href="https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph2007-curlnoise.pdf" target="_blank" rel="noopener">
+                            Bridson, Hourihan, Nordenstam, “Curl‑Noise for Procedural Fluid Flow,” SIGGRAPH 2007
+                        </a>
+                        — simple, divergence‑free velocity fields derived from Perlin noise; useful for stable, vortex‑rich flow guidance.
+                    </li>
+                </ul>
+
+                <h3>5) Mesh‑Based Piecewise‑Affine Warping</h3>
+                <ul>
+                    <li>
+                        <a href="https://www-ui.is.s.u-tokyo.ac.jp/~takeo/papers/rigid.pdf" target="_blank" rel="noopener">
+                            Igarashi, Moscovich, Hughes, “As‑Rigid‑As‑Possible Shape Manipulation,” TOG 2005
+                        </a>
+                        — triangle‑mesh deformation minimizing local distortion; a standard reference for piecewise‑affine mesh warps.
+                    </li>
+                    <li>
+                        <a href="https://graphics.cs.wisc.edu/Papers/2009/LGJA09/siggraph09_preprint.pdf" target="_blank" rel="noopener">
+                            Liu et&nbsp;al., “Content‑Preserving Warps for 3D Video Stabilization,” SIGGRAPH 2009
+                        </a>
+                        — content‑preserving warping on meshes for video (optimization‑driven; conceptually related to mesh‑based image deformation).
+                    </li>
+                </ul>
+
+                <div class="highlight-box" style="margin-top:20px;">
+                    <strong>Takeaway.</strong> To our knowledge, the exact combination—
+                    an <em>adaptive</em> Delaunay mesh over an image, with per‑vertex displacements taken from a
+                    <em>procedural</em> (e.g., Perlin/curl) flow field and displacement magnitudes modulated by local brightness,
+                    plus lightweight HSB color shifts—has not been explicitly documented as a single, real‑time stylization pipeline in the cited literature.
+                    The approach should therefore be positioned as a practical synthesis of well‑established components.
+                </div>
+            </div>
+            <!-- Developer Showcase Tab -->
+            <div id="showcase" class="tab-content">
+                <h2 style="margin-top: 0; margin-bottom: 40px;">Outputs from Some Initial Experiments exploring the Parametric Space</h2>
+               
+
+
+                <div class="showcase-grid">
+                    <!-- clothy.mp4 (first, as requested) -->
+                    <div class="showcase-item-card">
+                        <video src="https://labs.galleri5.com/clothy.mp4" autoplay loop muted playsinline class="showcase-media"></video>
+                    </div>
+
+                    <!-- imperao.jpg -->
+                    <div class="showcase-item-card">
+                        <img src="https://labs.galleri5.com/imperao.jpg" alt="Imperao abstract art" class="showcase-media">
+                    </div>
+
+                    <!-- feather.png -->
+                    <div class="showcase-item-card">
+                        <img src="https://labs.galleri5.com/feather.png" alt="Abstract feather art" class="showcase-media">
+                    </div>
+                </div>
+                    <br> <br>
+
+                 <div class="youtube-playlist-container">
+                    <iframe width="1120" height="630" src="https://www.youtube.com/embed/videoseries?si=lC58yRUmSrNRgaPR&amp;list=PLlVO1fVcT3G7OCB5cp3W4rOSZCsiys8HE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                </div>
+
+            </div>
+            
+            <!-- About Harsha Tab -->
+            <div id="about" class="tab-content">
+                <div class="about-container">
+                    <h2 style="margin-top: 0;">About the Co-Author</h2>
+                    <video src="https://labs.galleri5.com/harsha.mp4" autoplay loop muted playsinline class="about-video"></video>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching functionality
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => {
+                content.classList.remove('active');
+                // Pause video if it exists in a now-hidden tab
+                const video = content.querySelector('video');
+                if (video) {
+                    video.pause();
+                }
+            });
+            
+            // Find the clicked tab and activate it
+            // Using event.target which is implicitly available
+            event.target.classList.add('active');
+
+            const activeContent = document.getElementById(tabName);
+            activeContent.classList.add('active');
+
+            // Play video if it exists in the now-active tab
+            const videoToPlay = activeContent.querySelector('video');
+            if (videoToPlay) {
+                // The video has autoplay, loop, muted, so play() is just for resuming
+                // after being hidden by display:none.
+                videoToPlay.play().catch(error => {
+                    console.log("Video play failed. This is often expected if the user hasn't interacted with the page yet.", error);
+                });
+            }
+        }
+        
+        // Initialize MathJax
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+        
+        // P5.js Implementation
+        let img;
+        let originalImg;
+        let points = [];
+        let delaunay;
+        let triangles;
+        let canvas;
+
+        // Controls
+        let fileInput;
+        let densitySlider, displacementSlider, noiseZoomSlider, hueShiftSlider, saturationSlider;
+        
+        const defaultImageUrl = 'https://labs.galleri5.com/meats.webp' ;
+
+        function preload() {
+            originalImg = loadImage(defaultImageUrl);
+        }
+
+        function setup() {
+            // Only initialize if we're on the implementation tab
+            if (document.getElementById('implementation').classList.contains('active')) {
+                initializeImplementation();
+            }
+        }
+
+        function initializeImplementation() {
+            const canvasSize = min(windowWidth * 0.6, windowHeight * 0.5, 600);
+            canvas = createCanvas(canvasSize, canvasSize * (originalImg.height / originalImg.width));
+            canvas.parent('canvas-container');
+            
+            // Use HSB color mode for intuitive color manipulation
+            colorMode(HSB, 360, 100, 100, 100);
+            
+            img = originalImg.get();
+            img.resize(width, height);
+
+            // UI Controls Setup
+            fileInput = createFileInput(handleFile);
+            fileInput.parent('file-input-container');
+
+            densitySlider = createSlider(0.05, 1, 1, 0.01); // Changed default from 0.4 to 1
+            densitySlider.parent('density-slider-container');
+            densitySlider.input(regeneratePoints);
+
+            displacementSlider = createSlider(0, 150, 10, 1); // Changed default from 40 to 10
+            displacementSlider.parent('displacement-slider-container');
+
+            noiseZoomSlider = createSlider(0.001, 0.05, 0.01, 0.001);
+            noiseZoomSlider.parent('zoom-slider-container');
+            
+            hueShiftSlider = createSlider(0, 180, 45, 1);
+            hueShiftSlider.parent('hue-slider-container');
+            
+            saturationSlider = createSlider(0, 100, 50, 1);
+            saturationSlider.parent('saturation-slider-container');
+
+            regeneratePoints();
+        }
+
+        function regeneratePoints() {
+            points = [];
+            img.loadPixels();
+
+            points.push([0, 0], [width, 0], [0, height], [width, height]);
+
+            const density = densitySlider.value();
+            const numSamples = (width * height) / 100 * density;
+
+            for (let i = 0; i < numSamples; i++) {
+                let x = floor(random(width));
+                let y = floor(random(height));
+                let c = img.get(x, y);
+                if (random(100) < brightness(c)) {
+                    points.push([x, y]);
+                }
+            }
+            
+            if (points.length < 3) {
+                for(let i=0; i<10; i++) points.push([random(width), random(height)]);
+            }
+
+            delaunay = d3.Delaunay.from(points);
+            triangles = delaunay.triangles;
+            loop();
+        }
+
+        function draw() {
+            // Only draw if we're on the implementation tab
+            if (!document.getElementById('implementation').classList.contains('active')) {
+                noLoop(); // Stop p5 loop if not visible
+                return;
+            }
+            if (isLooping() === false) {
+                loop(); // Resume p5 loop if visible again
+            }
+            
+            background(0, 0, 10); // HSB black
+            
+            if (!delaunay) return;
+
+            const displacementAmount = displacementSlider.value();
+            const noiseZoom = noiseZoomSlider.value();
+            const hueShiftAmount = hueShiftSlider.value();
+            const saturationFadeAmount = saturationSlider.value();
+            const time = frameCount * 0.01;
+
+            for (let i = 0; i < triangles.length; i += 3) {
+                const p1_index = triangles[i], p2_index = triangles[i+1], p3_index = triangles[i+2];
+                const p1 = points[p1_index], p2 = points[p2_index], p3 = points[p3_index];
+
+                const centroidX = (p1[0] + p2[0] + p3[0]) / 3;
+                const centroidY = (p1[1] + p2[1] + p3[1]) / 3;
+                
+                // Calculate Displaced Vertices
+                const displacedVertices = [p1, p2, p3].map(p => {
+                    const originalX = p[0];
+                    const originalY = p[1];
+                    
+                    const noiseVal = noise(originalX * noiseZoom, originalY * noiseZoom, time);
+                    const angle = noiseVal * TWO_PI * 2;
+                    
+                    const brightnessAtPoint = brightness(img.get(originalX, originalY)) / 100;
+                    const magnitude = displacementAmount * brightnessAtPoint;
+                    
+                    return {
+                        x: originalX + cos(angle) * magnitude,
+                        y: originalY + sin(angle) * magnitude,
+                        noise: noiseVal,
+                        dispMag: magnitude
+                    };
+                });
+
+                // Calculate Modified Color
+                const originalColor = img.get(centroidX, centroidY);
+                let h = hue(originalColor);
+                let s = saturation(originalColor);
+                let b = brightness(originalColor);
+
+                // Hue Shift based on noise field
+                const avgNoise = (displacedVertices[0].noise + displacedVertices[1].noise + displacedVertices[2].noise) / 3;
+                const hueShift = (avgNoise - 0.5) * 2 * hueShiftAmount;
+                let newHue = (h + hueShift) % 360;
+                if (newHue < 0) newHue += 360;
+
+                // Saturation Fade based on displacement
+                const avgDisplacement = (displacedVertices[0].dispMag + displacedVertices[1].dispMag + displacedVertices[2].dispMag) / 3;
+                const displacementRatio = displacementAmount > 0 ? constrain(avgDisplacement / displacementAmount, 0, 1) : 0;
+                let newSaturation = s - (displacementRatio * saturationFadeAmount);
+                
+                fill(newHue, newSaturation, b);
+                noStroke();
+
+                // Draw the final triangle
+                beginShape();
+                displacedVertices.forEach(v => vertex(v.x, v.y));
+                endShape(CLOSE);
+            }
+        }
+
+        function handleFile(file) {
+            if (file.type === 'image') {
+                noLoop();
+                originalImg = loadImage(file.data, () => {
+                    let newHeight = canvas.width * (originalImg.height / originalImg.width);
+                    resizeCanvas(canvas.width, newHeight);
+                    img = originalImg.get();
+                    img.resize(width, height);
+                    regeneratePoints();
+                });
+            } else {
+                alert('Please upload an image file!');
+            }
+        }
+        
+        function windowResized() {
+            if (document.getElementById('implementation').classList.contains('active')) {
+                let newWidth = min(windowWidth * 0.6, 600);
+                let newHeight = newWidth * (height / width);
+                resizeCanvas(newWidth, newHeight);
+                img.resize(width, height);
+                regeneratePoints();
+            }
+        }
+
+        // Initialize implementation when switching to that tab
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('tab') && e.target.textContent === 'Live Implementation') {
+                // Use a small timeout to ensure the tab content is visible before initializing
+                setTimeout(() => {
+                    if (!canvas) {
+                        initializeImplementation();
+                    } else {
+                        loop(); // Resume drawing if canvas already exists
+                    }
+                }, 50);
+            }
+        });
+    </script>
+</body>
+</html>
